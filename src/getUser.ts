@@ -1,5 +1,6 @@
 import fetch from "node-fetch";
 import { User, userCache } from "./userCache";
+import type { Fetcher } from "./types";
 
 export async function getUser(
   serviceUA: string,
@@ -7,9 +8,8 @@ export async function getUser(
   email: string,
   iamURL: string,
   iamToken: string,
-  fetcher: Function = fetch,
+  fetcher: Fetcher = fetch,
 ): Promise<User> {
-
   if (!servicePermissionsIdentifier) {
     servicePermissionsIdentifier = serviceUA.split("/")[0]; // Kiwi RFC 22
   }
@@ -31,6 +31,6 @@ export async function getUser(
   });
   const user = await response.json();
 
-  userCache.set(user, servicePermissionsIdentifier,  10 * 60);
+  userCache.set(user, servicePermissionsIdentifier, 10 * 60);
   return user;
 }

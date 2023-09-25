@@ -1,5 +1,6 @@
 import jwt from "jsonwebtoken";
 import fetch from "node-fetch";
+import { Fetcher } from "./types";
 
 const IAP_PUBKEY_URL = "https://www.gstatic.com/iap/verify/public_key";
 const IAP_ISS = "https://cloud.google.com/iap";
@@ -8,7 +9,7 @@ export let cachedKeys: { [key: string]: string } = {};
 
 export async function getPubKey(
   keyID: string,
-  fetcher: Function = fetch,
+  fetcher: Fetcher = fetch,
 ): Promise<string> {
   let key = cachedKeys[keyID];
 
@@ -27,15 +28,15 @@ export async function getPubKey(
 
 export async function validateIAPToken(
   iapToken: string,
-  expectedAudience: string,
-  fetcher: Function = fetch,
+  expectedAudiences: string | string[],
+  fetcher: Fetcher = fetch,
 ): Promise<string | { [key: string]: any }> {
   const decoded = jwt.decode(iapToken, { complete: true });
 
   if (
     !decoded ||
-    typeof decoded === "string" ||
     !decoded.payload ||
+    typeof decoded.payload === "string" ||
     !decoded.header
   ) {
     throw Error(`Failed to decode IAP JWT [${iapToken}]`);
@@ -45,12 +46,20 @@ export async function validateIAPToken(
     throw Error(`Invalid IAP issuer [${decoded.payload.iss}]`);
   }
 
+  const expectedAudienceArray = Array.isArray(expectedAudiences)
+    ? expectedAudiences
+    : [expectedAudiences];
+  const aud = decoded.payload.aud;
+
   // From: https://cloud.google.com/iap/docs/signed-headers-howto
   // `aud` Must be a string with the following values:
   //  App Engine: /projects/PROJECT_NUMBER/apps/PROJECT_ID
   //  Compute Engine and GKE: /projects/PROJECT_NUMBER/global/backendServices/SERVICE_ID
-  if (decoded.payload.aud !== expectedAudience) {
-    throw Error(`Invalid audience [${decoded.payload.aud}]`);
+  if (typeof aud !== "string") {
+    throw Error(`Invalid audience: expected a string, received [${aud}]`);
+  }
+  if (!expectedAudienceArray.includes(aud)) {
+    throw Error(`Invalid audience [${aud}]`);
   }
 
   const keyID = decoded.header.kid;
